@@ -1,13 +1,14 @@
 Project Backups/
 *.workspace
+MainLatex/
+Workspace/
+Latex/
+*.zip
 
 #
-
-HW4
-
+HW4/Uploaded
 #
 
-HW5/MainLatex
 HW5/HW5_Workspace
 HW5/temp
 HW5/Description.md

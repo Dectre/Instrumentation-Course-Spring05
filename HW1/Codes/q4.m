@@ -1,0 +1,50 @@
+clc, clearvars, close all;
+clc, clearvars, close all;
+
+%% Part A: Check for Hysteresis by Plotting Sensor Data
+% Load dataset
+data = readmatrix('SensorDataQ4.csv');
+x = data(:,1);
+V_inc = data(:,2);
+V_dec = data(:,3);
+
+% Plot
+figure;
+plot(x, V_inc, 'b-o', 'LineWidth', 1.5);
+hold on;
+plot(x, V_dec, 'r-*', 'LineWidth', 1.5);
+xlabel('Displacement (mm)');
+ylabel('Output Voltage (V)');
+legend('Increasing Input', 'Decreasing Input');
+title('Sensor Calibration Curve (Hysteresis Check)');
+grid on;
+%% Part C: Calculate Hysteresis Error
+clc, close all;
+
+% Calculate hysteresis error at each input
+e_h = abs(V_inc - V_dec);
+
+% Calculate Full Scale and Maximum Hysteresis Error
+V_max = max(max(V_inc), max(V_dec));
+V_min = min(min(V_inc), min(V_dec));
+FS = V_max - V_min;
+
+max_eh = max(e_h);
+max_hysteresis_percent_FS = (max_eh / FS) * 100;
+
+% Create a table of the results
+results_table = table(x, V_inc, V_dec, e_h, ...
+    'VariableNames', {'X(mm)', 'V_inc(volt)', 'V_dec(volt)', 'Hysteresis_Error'});
+
+% Display the table
+disp('--- Detailed Hysteresis Error Table ---');
+disp(results_table);
+
+% Display the Full Scale calculations
+disp('--- Maximum Hysteresis ---');
+disp(['Full Scale (FS): ', num2str(FS), ' V']);
+disp(['Max Hysteresis Error: ', num2str(max_eh), ' V']);
+disp(['Max Hysteresis (%FS): ', num2str(max_hysteresis_percent_FS), ' %']);
+
+% Export the table to a CSV file
+writetable(results_table, 'Results/Q4-Table.csv');

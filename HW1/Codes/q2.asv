@@ -1,0 +1,102 @@
+clc, clearvars, close all;
+%% Part A: Least Squares (LS) for Degrees 1, 3, and 9
+
+% Load dataset
+data = readmatrix('data_A.csv');
+x_unsorted = data(:,1);
+y_unsorted = data(:,2);
+
+% Sort the data based on x-axis to prevent zig-zag lines in the plot
+[x, sortIdx] = sort(x_unsorted);
+y = y_unsorted(sortIdx);
+
+N = length(x);
+
+% Initialize variables
+deg = [1, 3, 9];
+theta_LS = cell(3, 1);
+y_est_LS = cell(3, 1);
+errors = zeros(3, 1);
+
+figure;
+plot(x, y, 'ko', 'MarkerFaceColor', 'k');
+hold on;
+colors = ['r', 'g', 'b'];
+
+% Loop through each degree to calculate parameters using standard LS
+for i = 1:3
+    d = deg(i);
+    
+    % Construct Regressors for polynomial of degree d
+    Phi = zeros(N, d+1);
+    for j = 0:d
+        Phi(:, j+1) = x.^j;
+    end
+    
+    % Calculate theta : (Phi^T * Phi)^-1 * Phi^T * y
+    theta_LS{i} = (Phi' * Phi) \ (Phi' * y);
+    
+    % Estimate y and calculate the error
+    y_est_LS{i} = Phi * theta_LS{i};
+    errors(i) = sum((y - y_est_LS{i}).^2);
+    
+    plot(x, y_est_LS{i}, colors(i), 'LineWidth', 1.5);
+end
+
+legend('Data', 'Deg 1', 'Deg 3', 'Deg 9');
+title('LS Polynomial Fitting');
+
+% Find and report the polynomial degree that resulted in the lowest error
+[~, best_idx] = min(errors);
+disp(['Best polynomial degree among [1, 3, 9] is: ', num2str(deg(best_idx))]);
+
+
+%% Part B: Recursive Least Squares (RLS) for Degree 9
+d = 9;
+
+% Rebuild the regressors for degree 9
+Phi_9 = zeros(N, d+1);
+for j = 0:d
+    Phi_9(:, j+1) = x.^j;
+end
+
+% initial conditions
+theta_RLS = zeros(d+1, 1);
+P = 10^5 * eye(d+1);
+
+% RLS main loop: Update parameters recursively for each new data point
+for k = 1:N
+    phi_k = Phi_9(k, :)';
+    
+    % Calculate the estimator gain (K)
+    K = (P * phi_k) / (1 + phi_k' * P * phi_k);
+    
+    % Update the parameter vector using the prediction error
+    theta_RLS = theta_RLS + K * (y(k) - phi_k' * theta_RLS);
+    
+    % Update the covariance matrix (P) for the next iteration
+    P = (eye(d+1) - K * phi_k') * P;
+end
+
+y_est_RLS = Phi_9 * theta_RLS;
+
+
+%% Part C: Comparing LS and RLS for Degree 9
+
+% Extract LS parameters for degree 9 to compare with RLS results
+theta_LS_9 = theta_LS{3};
+
+disp('--- Final Parameters: LS (Degree 9) ---');
+disp(theta_LS_9);
+
+disp('--- Final Parameters: RLS (Degree 9) ---');
+disp(theta_RLS);
+
+% Plot both LS and RLS estimations together to visualize their match
+figure;
+plot(x, y, 'ko', 'MarkerFaceColor', 'k');
+hold on;
+plot(x, y_est_LS{3}, 'b-', 'LineWidth', 2);
+plot(x, y_est_RLS, 'r--', 'LineWidth', 2);
+legend('Data', 'LS (Deg 9)', 'RLS (Deg 9)');
+title('Comparison between LS and RLS (Degree 9)');

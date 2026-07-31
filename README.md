@@ -1,7 +1,7 @@
 # Instrumentation Course - Spring 2026 (1405) 🎓
 
 ## 📚 About This Repository
-This repository contains homework assignments and projects for the **Instrumentation Engineering** course, completed in Spring 2026 (Iranian Calendar 1405). The projects cover sensor data analysis, dynamic system simulation, and embedded programming using STM32 microcontrollers.
+This repository contains homework assignments and projects for the **Instrumentation Engineering** course, completed in Spring 1405 (2026). The projects cover sensor data analysis, dynamic system simulation, and embedded programming using STM32 microcontrollers.
 
 ---
 

@@ -147,10 +147,7 @@ Each homework includes a detailed PDF report:
 ---
 
 ## 👨‍💻 Author
-**Amirali Dehghani**  
-Electrical Engineering Student (Control & Instrumentation)  
-Student ID: **810102443**  
-Term: **Spring 2026 (1405)**
+**Amirali Dehghani** | Electrical Engineering Student (Control)
 
 ---
 

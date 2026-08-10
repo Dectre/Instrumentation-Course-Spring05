@@ -77,7 +77,7 @@ HW3/
 
 | Figure 1.1: STM32CubeIDE Pinout Configuration | Figure 1.2: Proteus Circuit Schematic |
 | :---: | :---: |
-| ![Q1 Pinout](img/q1-1.png) | ![Q1 Schematic](img/q1-2.png) |
+| ![Q1 Pinout](img/q1-2.png) | ![Q1 Schematic](img/q1-1.png) |
 
 #### **Embedded Software Logic & Atomic Register Updates:**
 - **Pre-computed Hex Segment Table:**

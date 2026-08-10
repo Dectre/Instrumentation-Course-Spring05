@@ -11,10 +11,10 @@
 
 ## 📖 Overview
 
-Homework 3 transitions into embedded microcontrollers (STM32F103) for industrial data acquisition, timing control, actuator driving, and visual display interfacing:
-1. **Elevator Floor Indicator (7-Segment & EXTI Interrupts):** GPIO configuration for Common Cathode 7-Segment display, continuous 0–9 sequential floor cycling, and **External Interrupts (EXTI)** for emergency floor holds (`Floor 1` and `Floor 9`).
-2. **DC Motor Speed & Direction Control (PWM TIM2 + L298 Driver + ADC):** Timer configuration for $1\text{ kHz}$ PWM generation, mathematical Prescaler & Auto-Reload calculations, 12-bit ADC potentiometer speed scaling, L298 H-Bridge driver interfacing, and EXTI direction toggling.
-3. **15-Second Precision Countdown System (TIM2 Interrupts + 16x2 LCD + Alarm):** Hardware timer interrupt callback ($500\text{ ms}$ tick), synchronous $1\text{ Hz}$ LED blinking & Buzzer beeping, continuous alarm on expiration ($0\text{ s}$), real-time 16x2 LCD display, and instant `LogicState` reset.
+Homework 3 applies ARM Cortex-M3 (STM32F103) microcontrollers to industrial instrumentation, data acquisition, timing control, actuator driving, and visual display interfacing:
+1. **Elevator Floor Indicator (7-Segment & EXTI Interrupts):** GPIO bitmasking for Common Cathode 7-Segment multiplexing, sequential 0–9 floor cycling, and zero-latency **External Interrupts (EXTI)** for emergency floor holds (`Floor 1` and `Floor 9`).
+2. **DC Motor Speed & Direction Control (PWM TIM2 + L298 Driver + ADC):** Timer Prescaler & Auto-Reload mathematical tuning for $1\text{ kHz}$ PWM generation, 12-bit ADC potentiometer speed scaling, L298 H-Bridge driver interfacing, and EXTI direction toggling.
+3. **15-Second Precision Countdown System (TIM3 Interrupts + 16x2 LCD + Alarm):** Hardware timer interrupt callback ($500\text{ ms}$ tick), synchronous $1\text{ Hz}$ LED blinking & Buzzer beeping, continuous alarm hold on expiration ($0\text{ s}$), real-time HD44780 LCD display, and instant `LogicState` reset.
 4. **Automatic Industrial Sensor Identification System (12-Bit ADC + Alphanumeric LCD):** Multi-sensor simulation via potentiometer sampling with a 12-bit ADC ($0.8\text{ mV}$ resolution over $3.3\text{ V}$ range), automatic identification of **LM35 Temperature**, **HIH-4000 Humidity**, **MPX4115 Pressure**, and **MQ-135 Gas** sensors, and formatted LCD readout.
 
 ---
@@ -37,7 +37,7 @@ HW3/
 │   ├── main.c                           # Source code for 15s Timer Interrupt countdown system
 │   ├── Q3.pdsprj                        # Proteus schematic (STM32 + 16x2 LCD + Buzzer + LED)
 │   ├── Q3.hex                           # Compiled binary firmware
-│   └── Q3.ioc                           # STM32CubeMX configuration (TIM2 Interrupt + GPIO)
+│   └── Q3.ioc                           # STM32CubeMX configuration (TIM3 Interrupt + GPIO)
 ├── Q4/
 │   ├── main.c                           # Source code for Auto Sensor Classifier & Physical Unit LCD
 │   ├── q4.pdsprj                        # Proteus schematic (STM32 + Active Pot + 16x2 LCD)
@@ -62,42 +62,32 @@ HW3/
 
 ---
 
-## 💻 C Source Code & HAL Implementation Analysis
+## ✍️ Detailed Solutions & Hardware Implementations
 
 ---
 
-### 🔹 Question 1: Elevator Floor Indicator (`Q1/main.c`)
+### 🔹 Question 1: Elevator Floor Indicator (7-Segment & EXTI Interrupts)
 
-#### **Code Architecture & Register Manipulation:**
-- **7-Segment Hex Look-up Table:**
-  ```c
-  uint8_t segCode[10] = {0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F};
-  ```
-  Pre-computed Common Cathode hex codes mapping digits `0` through `9` to GPIOA pins `PA0..PA6`.
-
-- **Atomic ODR Register Update:**
-  To update segment outputs without altering high GPIOA pins, atomic bitmasking is performed on the Output Data Register:
-  ```c
-  GPIOA->ODR = (GPIOA->ODR & 0xFF80) | segCode[currentNumber];
-  ```
-
-- **State Machine & EXTI Interrupt Callbacks:**
-  ```c
-  volatile uint8_t systemState = 0; // State 0: Init (Floor 0), State 1: Running, State 2: Emergency 1, State 3: Emergency 9
-
-  void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-      if (GPIO_Pin == GPIO_PIN_1) {
-          systemState = 2; // Immediate hold on Floor 1
-      } else if (GPIO_Pin == GPIO_PIN_2) {
-          systemState = 3; // Immediate hold on Floor 9
-      }
-  }
-  ```
-  The asynchronous EXTI callbacks interrupt the $1000\text{ ms}$ `HAL_Delay` loop immediately, guaranteeing zero-latency emergency stopping.
+#### **Hardware Setup & Pin Configuration:**
+- **Display:** Common Cathode 7-Segment (`7SEG-COM-CATHODE`) connected to GPIOA pins `PA0` to `PA6` (Segments `A` through `G`).
+- **Control Buttons:**
+  - `PB0` (GPIO Input): Main start button (initiates continuous 0 to 9 floor cycling).
+  - `PB1` (`EXTI1` Interrupt): Emergency Floor 1 Hold button.
+  - `PB2` (`EXTI2` Interrupt): Emergency Floor 9 Hold button.
 
 | Figure 1.1: STM32CubeIDE Pinout Configuration | Figure 1.2: Proteus Circuit Schematic |
 | :---: | :---: |
 | ![Q1 Pinout](img/q1-1.png) | ![Q1 Schematic](img/q1-2.png) |
+
+#### **Embedded Software Logic & Atomic Register Updates:**
+- **Pre-computed Hex Segment Table:**
+  Digits `0` through `9` are mapped to Common Cathode hex codes:
+  `segCode[10] = {0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F}`.
+- **Atomic Bitmasking (ODR Register):**
+  To update segment outputs without altering upper GPIOA pins, direct atomic bitmasking is performed:
+  `GPIOA->ODR = (GPIOA->ODR & 0xFF80) | segCode[currentNumber]`.
+- **Zero-Latency Emergency Hold (EXTI Callbacks):**
+  When an emergency button is pressed, the hardware interrupt handler `HAL_GPIO_EXTI_Callback` immediately alters `systemState` (`1` for Floor 1, `2` for Floor 9), breaking out of the $1000\text{ ms}$ floor delay loop with zero latency.
 
 | Figure 1.3: Floor 0 (Initial) | Figure 1.4: Floor 5 (Cycling) | Figure 1.5: Emergency Hold Floor 1 (`EXTI1`) | Figure 1.6: Emergency Hold Floor 9 (`EXTI2`) |
 | :---: | :---: | :---: | :---: |
@@ -105,42 +95,24 @@ HW3/
 
 ---
 
-### 🔹 Question 2: DC Motor Speed & Direction Control (`Q2/main.c`)
+### 🔹 Question 2: DC Motor Speed & Direction Control (PWM TIM2 + L298 Driver)
 
-#### **Theoretical Prescaler & PWM Frequency Math:**
-Target PWM frequency: $f_{\text{PWM}} = 1\text{ kHz}$ on a $f_{\text{TIM}} = 36\text{ MHz}$ timer clock:
-$$f_{\text{PWM}} = \frac{f_{\text{TIM}}}{(\text{PSC} + 1) \times (\text{ARR} + 1)} = \frac{36 \times 10^6}{(35 + 1) \times (999 + 1)} = \frac{36 \times 10^6}{36000} = \mathbf{1000\text{ Hz}}$$
+#### **Theoretical PWM Calculations ($1\text{ kHz}$ Frequency):**
+Target PWM frequency $f_{\text{PWM}} = 1\text{ kHz}$ on a $f_{\text{TIM}} = 36\text{ MHz}$ internal clock:
+$$f_{\text{PWM}} = \frac{f_{\text{TIM}}}{(\text{PSC} + 1) \times (\text{ARR} + 1)}$$
+$$1000 = \frac{36 \times 10^6}{(\text{PSC} + 1) \times (\text{ARR} + 1)} \implies (\text{PSC} + 1) \times (\text{ARR} + 1) = 36000$$
 
-#### **C Implementation Highlights:**
-- **Timer & ADC Initialization:**
-  ```c
-  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
-  ```
+Selected Timer Configuration:
+- **Prescaler ($\text{PSC}$):** $35 \implies (\text{PSC} + 1) = 36$
+- **Auto-Reload Register ($\text{ARR}$):** $999 \implies (\text{ARR} + 1) = 1000$
 
-- **ADC Sampling & Dynamic PWM Scaling Loop:**
-  ```c
-  HAL_ADC_Start(&hadc1);
-  if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) {
-      adcValue = HAL_ADC_GetValue(&hadc1);
-  }
-  HAL_ADC_Stop(&hadc1);
-
-  // Mappings: 12-bit ADC (0..4095) -> PWM Duty Cycle ARR range (0..1000)
-  pwmValue = (adcValue * 1000) / 4095;
-  __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, pwmValue);
-  ```
-
-- **H-Bridge Direction Control & EXTI Inversion:**
-  ```c
-  volatile uint8_t motorDirection = 0;
-
-  void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-      if (GPIO_Pin == GPIO_PIN_0) {
-          motorDirection = !motorDirection; // Toggle direction on button press
-      }
-  }
-  ```
-  The main loop evaluates `motorDirection` and sets L298 driver input pins `PA2` (`IN1`) and `PA3` (`IN2`) accordingly.
+#### **Driver Interfacing & Control Logic:**
+- **L298 H-Bridge Driver Setup:**
+  - `ENA` (Enable A): Driven by TIM2 Channel 1 PWM signal (`PA0`) to control motor speed.
+  - `IN1` (`PA2`) & `IN2` (`PA3`): Direction control pins (`1,0` = Clockwise; `0,1` = Counter-Clockwise).
+  - `SEN_A` (Current Sense): Grounded (`GND`) to enable driver operation in Proteus.
+- **Dynamic Speed Scaling:** 12-bit ADC potentiometer reading ($0 - 4095$ on `PA1`) is scaled linearly to the Timer Compare Register (`__HAL_TIM_SET_COMPARE`) range $0 - 1000$ ($\text{Duty} = \frac{\text{ADC}}{4095} \times 1000$).
+- **EXTI Direction Inversion:** Push button on `PB0` triggers EXTI interrupt callback to invert `motorDirection`, instantly switching H-Bridge polarities.
 
 | Figure 2.1: TIM2 PWM & ADC Pinout Config | Figure 2.2: L298 Motor Driver Proteus Schematic |
 | :---: | :---: |
@@ -152,52 +124,15 @@ $$f_{\text{PWM}} = \frac{f_{\text{TIM}}}{(\text{PSC} + 1) \times (\text{ARR} + 1
 
 ---
 
-### 🔹 Question 3: 15-Second Precision Countdown System (`Q3/main.c`)
+### 🔹 Question 3: 15-Second Precision Countdown System (TIM3 Interrupts + 16x2 LCD)
 
-#### **Timer Interrupt Callbacks & Sub-Second Ticking:**
-TIM3 is configured with Prescaler $\text{PSC} = 35999$ and Period $\text{ARR} = 499$, generating a hardware interrupt callback every **$500\text{ ms}$** ($2\text{ Hz}$ tick).
-
-- **Synchronous Alarm & Clock Management in `HAL_TIM_PeriodElapsedCallback`:**
-  ```c
-  void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-      if (htim->Instance == TIM3) {
-          if (isRunning == 1) {
-              if (countdown > 0) {
-                  timerTick++;
-                  if (timerTick % 2 == 1) { // 500ms ON state
-                      HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_SET);  // LED ON
-                      HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_SET);  // Buzzer ON
-                  } else {                  // 500ms OFF state (Full 1s elapsed)
-                      HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET); // LED OFF
-                      HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_RESET); // Buzzer OFF
-                      countdown--;
-                  }
-              } else { // Expiration (0s): Latch Alarm Continuously
-                  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_SET);
-                  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_SET);
-              }
-          }
-      }
-  }
-  ```
-
-- **LCD Rendering & Hardware LogicState Reset in `main()`:**
-  ```c
-  if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET) {
-      if (isRunning == 0 && countdown == 15) isRunning = 1;
-  } else {
-      isRunning = 0; countdown = 15; // Reset countdown to 15s
-      HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET);
-      HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_RESET);
-  }
-
-  if (countdown != last_countdown) {
-      sprintf(lcdBuffer, "Time: %02d   ", countdown);
-      Lcd_cursor(&lcd, 0, 0);
-      Lcd_string(&lcd, lcdBuffer);
-      last_countdown = countdown;
-  }
-  ```
+#### **Timer Interrupt Callbacks & Synchronous Alarm:**
+- **Timer Configuration:** TIM3 configured with $\text{PSC} = 35999$ and $\text{ARR} = 499$, generating a precise hardware interrupt every **$500\text{ ms}$** ($2\text{ Hz}$ tick).
+- **Sub-Second Tick Logic (`HAL_TIM_PeriodElapsedCallback`):**
+  - Every $500\text{ ms}$ tick, an internal counter `timerTick` increments.
+  - Modulo arithmetic (`timerTick % 2`) toggles the LED (`PA1`) and Buzzer (`PA2`) output pins, producing a synchronized **$1\text{ Hz}$ blinking LED and $1\text{ s}$ interval beeping alarm**.
+  - Every two $500\text{ ms}$ ticks ($1\text{ s}$ full), `countdown` decreases by 1 second.
+- **Expiration Hold ($0\text{ s}$):** Countdown halts and latches LED and Buzzer into a **continuous ON alarm state** until `PA0` reset switch is set to `0`.
 
 | Figure 3.1: Countdown System Proteus Schematic |
 | :---: |
@@ -209,55 +144,26 @@ TIM3 is configured with Prescaler $\text{PSC} = 35999$ and Period $\text{ARR} = 
 
 ---
 
-### 🔹 Question 4: Automatic Multi-Sensor Classifier (`Q4/main.c`)
+### 🔹 Question 4: Automatic Industrial Multi-Sensor Identification System
 
-#### **ADC Sampling & Real-Time Sensor Classification Code:**
-- **Quantization Voltage Formula:**
-  $$\text{sensorVoltage} = \frac{\text{adcValue} \times 3.3\text{ V}}{4095.0}$$
+#### **ADC Quantization & Sensor Classifier Decision Tree:**
+- **ADC Unit:** 12-Bit resolution ADC1 Channel 1 (`PA1`), Reference Voltage $V_{\text{ref}} = 3.3\text{ V}$.
+- **Resolution:** $2^{12} = 4096$ quantization levels $\implies \Delta V = \frac{3.3\text{ V}}{4095} \approx \mathbf{0.805\text{ mV}}$.
 
-- **Conditional Multi-Sensor Classification & Formatting:**
-  ```c
-  HAL_ADC_Start(&hadc1);
-  if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) {
-      adcValue = HAL_ADC_GetValue(&hadc1);
-      sensorVoltage = (adcValue * 3.3f) / 4095.0f;
-  }
-  HAL_ADC_Stop(&hadc1);
+The system continuously samples input voltage and automatically classifies sensor types and physical quantities according to the voltage window:
 
-  if (sensorVoltage >= 0.0f && sensorVoltage < 1.0f) {
-      sprintf(sensorName, "Temp: LM35");
-      physicalValue = 100.0f * sensorVoltage;
-      sprintf(unit, "C");
-  } else if (sensorVoltage >= 1.0f && sensorVoltage < 2.0f) {
-      sprintf(sensorName, "Hum: HIH-4000");
-      physicalValue = 33.3f * sensorVoltage;
-      sprintf(unit, "%%");
-  } else if (sensorVoltage >= 2.0f && sensorVoltage < 3.0f) {
-      sprintf(sensorName, "Pres: MPX4115");
-      physicalValue = 100.0f * sensorVoltage;
-      sprintf(unit, "hPa");
-  } else if (sensorVoltage >= 3.0f && sensorVoltage <= 3.3f) {
-      sprintf(sensorName, "Air: MQ-135");
-      physicalValue = 100.0f * (sensorVoltage / 3.3f);
-      sprintf(unit, "%%");
-  }
-
-  sprintf(line1, "%-16s", sensorName);
-  sprintf(line2, "Val: %.2f %s   ", physicalValue, unit);
-  Lcd_cursor(&lcd, 0, 0); Lcd_string(&lcd, line1);
-  Lcd_cursor(&lcd, 1, 0); Lcd_string(&lcd, line2);
-  ```
-
-| Voltage Window ($V$) | Classified Sensor | Physical Formula | LCD Line 1 / Line 2 Output |
-| :---: | :---: | :---: | :---: |
-| **$0.00 - 0.99\text{ V}$** | **LM35 Temperature** | $\text{Temp} = 100 \times V$ | `Temp: LM35` / `Val: 50.00 C` |
-| **$1.00 - 1.99\text{ V}$** | **HIH-4000 Humidity** | $\text{Humidity} = 33.3 \times V$ | `Hum: HIH-4000` / `Val: 49.95 %` |
-| **$2.00 - 2.99\text{ V}$** | **MPX4115 Pressure** | $\text{Pressure} = 100 \times V$ | `Pres: MPX4115` / `Val: 250.00 hPa` |
-| **$3.00 - 3.30\text{ V}$** | **MQ-135 Air Quality** | $\text{Air Quality} = \frac{V}{3.3} \times 100$ | `Air: MQ-135` / `Val: 100.00 %` |
+| Voltage Range ($V$) | Classified Sensor | Physical Calculation Formula | Physical Range | LCD Output Line 1 / Line 2 |
+| :---: | :---: | :---: | :---: | :---: |
+| **$0.00 - 0.99\text{ V}$** | **LM35 Temperature** | $\text{Temp} = V \times 100$ | $0.0 - 99.0^\circ\text{C}$ | `Temp: LM35` / `Val: 50.00 C` |
+| **$1.00 - 1.99\text{ V}$** | **HIH-4000 Humidity** | $\text{Humidity} = V \times 33.3$ | $33.3 - 66.3\%$ | `Hum: HIH-4000` / `Val: 49.95 %` |
+| **$2.00 - 2.99\text{ V}$** | **MPX4115 Pressure** | $\text{Pressure} = V \times 100$ | $200.0 - 299.0\text{ hPa}$ | `Pres: MPX4115` / `Val: 250.00 hPa` |
+| **$3.00 - 3.30\text{ V}$** | **MQ-135 Air Quality** | $\text{Air Quality} = \left(\frac{V}{3.3}\right) \times 100$ | $90.9 - 100.0\%$ | `Air: MQ-135` / `Val: 100.00 %` |
 
 | Figure 4.1: STM32 ADC & LCD Pinout Config | Figure 4.2: Proteus Circuit Diagram |
 | :---: | :---: |
 | ![Q4 Pinout](img/q4-1.png) | ![Q4 Schematic](img/q4-2.png) |
+
+#### **Proteus Simulation Readouts Across Sensor Windows:**
 
 | Figure 4.3: LM35 Temp ($0.50\text{ V} \to 50.00^\circ\text{C}$) | Figure 4.4: HIH4000 Humidity ($1.50\text{ V} \to 49.95\%$) |
 | :---: | :---: |

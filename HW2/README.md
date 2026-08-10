@@ -106,39 +106,50 @@ An NTC thermistor is connected in a voltage divider powered by a $5\text{ V}$ re
 
 ---
 
-### 🔹 Question 3: 4-Bit R-2R Digital-to-Analog Converter (DAC) & Waveform Generator
+### 🔹 Question 3: 4-Bit R-2R Digital-to-Analog Converter (DAC) & Waveform Generators
 
-#### **Inverting R-2R DAC Transfer Function:**
+#### **1. Inverting R-2R DAC Transfer Function & Mathematical Derivation:**
 Given $V_{\text{ref}} = 4.8\text{ V}$, $R = 5\text{ k}\Omega$, $R_f = 10\text{ k}\Omega$, $n = 4\text{ bits}$:
 $$V_{\text{out}} = -V_{\text{ref}} \times \left( \frac{R_f}{R} \right) \times \left( \frac{D}{2^n} \right) = -4.8 \times \left( \frac{10}{5} \right) \times \frac{D}{16} = \mathbf{-0.6 \times D \quad [\text{V}]}$$
 
-#### **Part (a): Theoretical Calculations vs Proteus Simulation:**
+#### **Part (a): Theoretical Calculations vs Proteus DC Verification:**
 - **Digital Input `1011` ($D = 11$):**
   $$V_{\text{out}} = -0.6 \times 11 = \mathbf{-6.60\text{ V}}$$
 - **Digital Input `1110` ($D = 14$):**
   $$V_{\text{out}} = -0.6 \times 14 = \mathbf{-8.40\text{ V}}$$
-- Both theoretical values match Proteus voltmeter measurements with 100% precision.
+- Both theoretical calculations match Proteus DC voltmeter measurements with 100% accuracy.
 
-| Figure 3.1: 4-Bit R-2R DAC Proteus Verification (`1011` & `1110`) |
+| Figure 3.1: Digital Input `1011` ($V_{\text{out}} = -6.60\text{ V}$) | Figure 3.2: Digital Input `1110` ($V_{\text{out}} = -8.40\text{ V}$) |
+| :---: | :---: |
+| ![DAC 1011](img/q3-1.png) | ![DAC 1110](img/q3-2.png) |
+
+#### **Part (b): Discrete Stepped Sawtooth Wave Generation (74HC161 + R-2R DAC):**
+- A 4-bit synchronous binary counter (74HC161) increments sequentially from `0000` ($0$) to `1111` ($15$).
+- Connected to the inverting R-2R DAC, it outputs a discrete **negative-sloped staircase waveform** dropping from $0\text{ V}$ to $-9.0\text{ V}$ before resetting on counter overflow.
+
+| Figure 3.3: Discrete Stepped Sawtooth Waveform (74HC161 Counter + R-2R DAC) |
 | :---: |
-| ![DAC Verification](img/q3-1.png) |
+| ![Discrete Sawtooth](img/q3-3.png) |
 
-#### **Part (b & c): Sawtooth Wave Generation & RC Smoothing:**
-- Connecting a 4-bit binary counter (74HC161) to the DAC inputs produces a discrete stepped sawtooth wave from $0\text{ V}$ to $-9.0\text{ V}$.
-- Adding a passive Low-Pass RC filter ($R = 1\text{ k}\Omega$, $C = 1\,\mu\text{F}$) removes sharp step transitions and high-frequency harmonics, converting discrete steps into a **smooth continuous analog sawtooth wave**.
+#### **Part (c): Continuous Sawtooth Wave Smoothing (Low-Pass RC Filtering):**
+- Discrete DAC steps contain high-frequency harmonics due to sharp voltage jumps between states.
+- Passing the Op-Amp output through a passive Low-Pass RC filter ($R = 1\text{ k}\Omega$, $C = 1\,\mu\text{F}$) removes high-frequency step harmonics, producing a **smooth, continuous linear sawtooth wave**.
 
-| Figure 3.2: Discrete Sawtooth Wave (74HC161 + DAC) | Figure 3.3: Smooth Sawtooth Wave (RC Low-Pass Filtered) |
-| :---: | :---: |
-| ![Discrete Sawtooth](img/q3-2.png) | ![Smooth Sawtooth](img/q3-3.png) |
+| Figure 3.4: Smooth Continuous Analog Sawtooth Waveform (Filtered via Low-Pass RC) |
+| :---: |
+| ![Smooth Sawtooth](img/q3-4.png) |
 
-#### **Part (d & e): Full Triangular Wave Generation (74HC191 Up/Down Counter):**
-- Replaces the simple counter with a 74HC191 Up/Down Counter controlled by a JK Flip-Flop connected to Terminal Count (`TC`).
-- The counter counts UP from `0000` to `1111` (rising slope), then toggles direction to count DOWN from `1111` to `0000` (falling slope).
-- After RC low-pass filtering, it generates a **full, symmetric, smooth continuous triangular wave**.
+#### **Part (d & e): Full Continuous Symmetric Triangular Waveform (74HC191 Up/Down Counter):**
+- **Architecture:** Replaces the single-direction counter with a **74HC191 4-bit Up/Down Counter** coupled to a **JK Flip-Flop**.
+- **Working Principle:**
+  1. Counter counts UP from `0000` to `1111` (generating negative slope to $-9.0\text{ V}$).
+  2. Upon reaching Terminal Count (`TC`), `TC` triggers the JK Flip-Flop to toggle the Count Direction pin (`D/U`).
+  3. Counter counts DOWN from `1111` to `0000` (generating positive slope back to $0\text{ V}$).
+- **Result:** After RC low-pass filtering, the circuit produces a **full, symmetric, smooth continuous triangular wave**.
 
-| Figure 3.4: Up/Down Counter DAC Circuit Diagram | Figure 3.5: Full Continuous Triangular Wave Output |
-| :---: | :---: |
-| ![Triangular Schematic](img/q3-4.png) | ![Triangular Wave](img/q3-5.png) |
+| Figure 3.5: Full Continuous Triangular Wave Generator (74HC191 U/D Counter + JKFF + Filter) |
+| :---: |
+| ![Triangular Wave Generator](img/q3-5.png) |
 
 ---
 
